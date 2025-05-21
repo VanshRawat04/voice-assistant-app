@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:voice_assistant_app/feature_box.dart';
+import 'package:voice_assistant_app/openai_service.dart';
 import 'package:voice_assistant_app/pallete.dart';
 
+// ✅ Add this class back
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -14,6 +16,9 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final speechToText = SpeechToText();
   String lastWords = '';
+  final OpenAIService openAIService = OpenAIService();
+  final List<String> messages = [];
+
   @override
   void initState() {
     super.initState();
@@ -26,6 +31,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> startListening() async {
+    // Reset conversation when starting a new listen
+    setState(() {
+      messages.clear();
+      messages.add("🆕 New conversation started");
+      lastWords = '';
+    });
+
     await speechToText.listen(onResult: onSpeechResult);
     setState(() {});
   }
@@ -43,8 +55,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    super.dispose();
     speechToText.stop();
+    super.dispose();
   }
 
   @override
@@ -58,6 +70,7 @@ class _HomePageState extends State<HomePage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
+            // Assistant image and intro
             Stack(
               children: [
                 Center(
@@ -74,37 +87,37 @@ class _HomePageState extends State<HomePage> {
                 Container(
                   height: 125,
                   decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      image: DecorationImage(
-                        image: AssetImage('assets/images/virtualAssistant.png'),
-                      )),
+                    shape: BoxShape.circle,
+                    image: DecorationImage(
+                      image: AssetImage('assets/images/virtualAssistant.png'),
+                    ),
+                  ),
                 )
               ],
             ),
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               margin:
                   const EdgeInsets.symmetric(horizontal: 40).copyWith(top: 30),
               decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Pallete.borderColor,
-                  ),
-                  borderRadius:
-                      BorderRadius.circular(20).copyWith(topLeft: Radius.zero)),
+                border: Border.all(color: Pallete.borderColor),
+                borderRadius:
+                    BorderRadius.circular(20).copyWith(topLeft: Radius.zero),
+              ),
               child: const Padding(
                 padding: EdgeInsets.symmetric(vertical: 10),
                 child: Text(
                   "Good Morning, what task can  I do for you ?",
                   style: TextStyle(
-                      color: Pallete.mainFontColor,
-                      fontSize: 24,
-                      fontFamily: "Cera Pro"),
+                    color: Pallete.mainFontColor,
+                    fontSize: 24,
+                    fontFamily: "Cera Pro",
+                  ),
                 ),
               ),
             ),
+
+            // Suggestions
             Container(
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(top: 10, left: 22),
@@ -140,9 +153,46 @@ class _HomePageState extends State<HomePage> {
                   headerText: 'Smart Voice Assistant',
                   descriptionText:
                       'Get the best of both worlds with a voice assistant powerd by Dall-E and ChatGPT',
-                )
+                ),
               ],
-            )
+            ),
+
+            // 💬 Chat messages area
+            const SizedBox(height: 20),
+            const Text(
+              'Conversation',
+              style: TextStyle(
+                fontSize: 20,
+                fontFamily: 'Cera Pro',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: messages.length,
+              itemBuilder: (context, index) => Container(
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Pallete.firstSuggestionBoxColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  messages[index],
+                  style: const TextStyle(
+                    fontFamily: 'Cera Pro',
+                    fontSize: 16,
+                    color: Pallete.mainFontColor,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 100),
           ],
         ),
       ),
@@ -152,6 +202,12 @@ class _HomePageState extends State<HomePage> {
             await startListening();
           } else if (speechToText.isListening) {
             await stopListening();
+            setState(() {
+              if (lastWords.trim().isNotEmpty) {
+                messages.add("🗣️ $lastWords");
+              }
+            });
+            await openAIService.isArtPromptAPI(lastWords);
           } else {
             intiSpeechToText();
           }
